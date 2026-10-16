@@ -19,8 +19,7 @@ TRAIL_SIZE  = 0.02    # m, sphere radius
 
 class SimNode(Node):
 
-    """One MuJoCo world, stepped by a ROS timer.
-        Publishes the drone's true state, subscribes to motor commands."""
+    """One MuJoCo world, stepped by a ROS timer.Publishes the drone's true state, subscribes to motor commands."""
     def __init__(self):
         super().__init__('sim_node')
         share_dir  = get_package_share_directory('quad_nmpc_ros')
@@ -54,11 +53,16 @@ class SimNode(Node):
         # 9  the viewer. No `with` — we spin, we don't loop.
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
 
-        # 10 LAST: 5 physics steps per tick -> 500 Hz physics, 100 Hz odom
-        self.create_timer(self.model.opt.timestep * PHYSICS_PER_TICK, self.step)
-
         self._tick = 0
         self.viewer.user_scn.ngeom = 0
+
+        # how long to fly, in SIM seconds. 0 (the default) runs until Ctrl-C.
+        #   ros2 run quad_nmpc_ros sim_node --ros-args -p duration:=60.0
+        self.declare_parameter('duration', 0.0)
+        self.duration = float(self.get_parameter('duration').value)
+
+        # 10 LAST: 5 physics steps per tick -> 500 Hz physics, 100 Hz odom
+        self.create_timer(self.model.opt.timestep * PHYSICS_PER_TICK, self.step)
 
 
     def on_motor_cmd(self,msg):
@@ -80,6 +84,12 @@ class SimNode(Node):
         # 12c + 12d
         self.publish_odom()
         self.viewer.sync()
+
+        # stop by ourselves so the drone never drifts off after the demo
+        if self.duration > 0.0 and self.data.time >= self.duration:
+            self.get_logger().info(
+                f'reached duration {self.duration:.1f} s, stopping')
+            raise SystemExit
 
     def publish_odom(self):
         qpos = self.joint.qpos
@@ -113,7 +123,6 @@ class SimNode(Node):
 
         self.odom_pub.publish(msg)
 
-
     def add_breadcrumb(self):
         """Drop one sphere at the drone's current position, into the viewer's
         user scene. O(1): geoms accumulate, we never redraw the whole trail."""
@@ -131,7 +140,6 @@ class SimNode(Node):
         scn.ngeom += 1
 
 
-
 def main(args=None):
     rclpy.init(args=args)
     node = SimNode()
@@ -140,14 +148,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        node.viewer.close()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
-
-
-
-
 
 if __name__=='__main__': main()
 

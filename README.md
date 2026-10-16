@@ -34,6 +34,7 @@ read off the model at startup, nothing is hard-coded.
 - Python 3.10 with `mujoco`, `casadi`, `numpy`, `acados_template`
 - [acados](https://docs.acados.org) built, with `ACADOS_SOURCE_DIR` set and
   `$ACADOS_SOURCE_DIR/lib` on `LD_LIBRARY_PATH`
+- `matplotlib` (only needed for the tracking-error plot written on exit)
 
 All of the above must be importable by **one** interpreter. If you use conda,
 install `colcon-common-extensions` into that same env:

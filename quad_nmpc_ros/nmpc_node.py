@@ -1,4 +1,6 @@
+import csv
 import os
+import signal
 
 import mujoco
 import numpy as np
@@ -10,6 +12,7 @@ from actuator_msgs.msg import Actuators
 from nav_msgs.msg import Odometry
 
 from .nmpc_controller import NMPC
+from .paths import default_log_path
 
 R        = 2.0     # m     circle radius
 ALTITUDE = 1.5     # m     flight height
@@ -57,6 +60,26 @@ class NmpcNode(Node):
         self.t0 = None          # sim time of the first odom message
         self._next_report = 0.0
 
+        # The flight log is written to disk AS WE FLY, one row per odometry
+        # message. Nothing about it depends on a clean shutdown: whatever is on
+        # disk when the node dies is valid data. Render it afterwards with
+        #     ros2 run quad_nmpc_ros plot_log
+        self.declare_parameter('log_file', '')
+        self.log_path = (self.get_parameter('log_file').value
+                         or default_log_path())
+        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+        self._log_fh  = open(self.log_path, 'w', newline='')
+        self._log_csv = csv.writer(self._log_fh)
+        self._log_csv.writerow(
+            ['t', 'x', 'y', 'z', 'ref_x', 'ref_y', 'ref_z', 'err_cm'])
+        self._rows = 0
+        self.get_logger().info(f'logging to {self.log_path}')
+
+        # stop after this many SIM seconds. 0 (the default) runs until Ctrl-C.
+        # If you set it, set sim_node's to match so both end together.
+        self.declare_parameter('duration', 0.0)
+        self.duration = float(self.get_parameter('duration').value)
+
         self.cmd_pub = self.create_publisher(Actuators, '/motor_cmd', 10)
 
         # no timer: odom arriving IS the clock
@@ -93,6 +116,16 @@ class NmpcNode(Node):
         cmd.normalized = u.tolist()
         self.cmd_pub.publish(cmd)
 
+        ref = self.positions[0]
+        err_cm = float(np.linalg.norm(ref - np.array([p.x, p.y, p.z]))) * 100.0
+        self._log_csv.writerow([f'{t:.4f}',
+                                f'{p.x:.6f}', f'{p.y:.6f}', f'{p.z:.6f}',
+                                f'{ref[0]:.6f}', f'{ref[1]:.6f}', f'{ref[2]:.6f}',
+                                f'{err_cm:.4f}'])
+        self._rows += 1
+        if self._rows % 50 == 0:            # ~twice a second, costs nothing
+            self._log_fh.flush()
+
         if t >= self._next_report:
             want = self.positions[0]
             err  = float(np.linalg.norm(want - np.array([p.x, p.y, p.z])))
@@ -100,7 +133,24 @@ class NmpcNode(Node):
                 f't={t:5.1f}s  err={err * 100:6.1f} cm  '
                 f'pos=({p.x:+.2f},{p.y:+.2f},{p.z:+.2f})')
             self._next_report += 1.0
-    
+
+        # the plot is written by main()'s finally block on the way out
+        if self.duration > 0.0 and t >= self.duration:
+            self.get_logger().info(
+                f'reached duration {self.duration:.1f} s, stopping')
+            raise SystemExit
+
+    def close_log(self):
+        """Flush and close the CSV. Best effort: the file is already usable."""
+        try:
+            self._log_fh.flush()
+            self._log_fh.close()
+        except Exception:
+            pass
+        print(f'[nmpc_node] flight log: {self.log_path}', flush=True)
+        print('[nmpc_node] plot it with:  ros2 run quad_nmpc_ros plot_log',
+              flush=True)
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -110,6 +160,9 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        # a second Ctrl-C while we are writing the plot must not kill us
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        node.close_log()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

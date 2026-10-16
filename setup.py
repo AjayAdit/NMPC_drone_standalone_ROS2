@@ -29,6 +29,7 @@ setup(
         'console_scripts': [
             'sim_node = quad_nmpc_ros.sim_node:main',
             'nmpc_node = quad_nmpc_ros.nmpc_node:main',
+            'plot_log = quad_nmpc_ros.plot_log:main',
         ],
     },
 )
