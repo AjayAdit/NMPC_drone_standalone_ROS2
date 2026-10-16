@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+
+# colcon artefacts, if anyone builds inside the package dir
+build/
+install/
+log/
+*.egg-info/
+
+.vscode/
+.idea/
