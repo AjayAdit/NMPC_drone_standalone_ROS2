@@ -82,7 +82,7 @@ class SimNode(Node):
             self.add_breadcrumb()
 
         # 12c + 12d
-        self.publish_odom()
+        self.publish_odom() # publish odom 
         self.viewer.sync()
 
         # stop by ourselves so the drone never drifts off after the demo

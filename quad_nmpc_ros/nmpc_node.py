@@ -14,7 +14,7 @@ from nav_msgs.msg import Odometry
 from .nmpc_controller import NMPC
 from .paths import default_log_path
 
-R        = 2.0     # m     circle radius
+R        = 5.0     # m     circle radius
 ALTITUDE = 1.5     # m     flight height
 OMEGA    = 0.5     # rad/s about 1 m/s along the circle
 
