@@ -61,6 +61,8 @@ class NmpcNode(Node):
         self.t0 = None          # sim time of the first odom message
         self._turns = None  # double-cover offset, locked on the first odom
         self._next_report = 0.0
+        self._last_good_u = None    # last command from a converged solve
+        self._bad_solves  = 0
 
         # The flight log is written to disk AS WE FLY, one row per odometry
         # message. Nothing about it depends on a clean shutdown: whatever is on
@@ -120,6 +122,23 @@ class NmpcNode(Node):
 
         self.ctrl.set_target_trajectory(self.positions, self.velocities, self.yaws)
         u = self.ctrl.compute_action(x_meas, None)
+
+        # acados sets .status on every solve. Non-zero means the QP did not
+        # converge, and compute_action returns whatever was left in node 0
+        # regardless -- which is how the 182 s flight ended on the floor.
+        # Flying on the last good command beats flying on garbage.
+        if self.ctrl.solver.status != 0:
+            self._bad_solves += 1
+            if self._last_good_u is None:
+                return              # nothing safe to send yet; skip this tick
+            if self._bad_solves % 10 == 1:
+                self.get_logger().warn(
+                    f'solver status {self.ctrl.solver.status}, holding last '
+                    f'command ({self._bad_solves} consecutive)')
+            u = self._last_good_u
+        else:
+            self._last_good_u = u
+            self._bad_solves  = 0
 
         cmd = Actuators()
         cmd.header.stamp = msg.header.stamp
