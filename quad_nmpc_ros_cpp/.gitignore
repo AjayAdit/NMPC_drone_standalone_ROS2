@@ -1,0 +1,7 @@
+# Build artifacts from whoever last ran scripts/regenerate.sh. The .c/.h in
+# acados_generated/ ARE committed on purpose -- see the README -- but the
+# objects and the shared library are machine-specific and get rebuilt by
+# colcon anyway.
+acados_generated/**/*.o
+acados_generated/*.o
+acados_generated/*.so

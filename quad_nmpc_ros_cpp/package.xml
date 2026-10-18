@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>quad_nmpc_ros_cpp</name>
+  <version>0.1.0</version>
+  <description>
+    Trajectory-tracking NMPC for a quadrotor, in C++. The controller and its ROS
+    wrapper -- everything that would run on the aircraft. The simulator stays in
+    Python; it is a test fixture, not flight software.
+
+    Speaks the same two topics as quad_nmpc_ros, so either controller drives
+    either simulator.
+  </description>
+  <maintainer email="j.ajayadit@gmail.com">AjayAdit</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>nav_msgs</depend>
+  <depend>actuator_msgs</depend>
+
+  <!-- only for the bundled Python simulator, scripts/sim_node.py -->
+  <exec_depend>rclpy</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

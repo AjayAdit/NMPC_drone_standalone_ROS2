@@ -1,0 +1,21 @@
+# Defaults are compiled into nmpc_node; this file exists to override them:
+#
+#   ros2 run quad_nmpc_ros_cpp nmpc_node --ros-args \
+#       --params-file $(ros2 pkg prefix quad_nmpc_ros_cpp)/share/quad_nmpc_ros_cpp/config/params.yaml
+#
+# mass, gravity and k_tau only set the hover input the cost is referenced to.
+# The dynamics themselves are baked into acados_generated/ -- change the
+# airframe and you must run scripts/regenerate.sh, not just edit this file.
+nmpc_node:
+  ros__parameters:
+    radius: 5.0        # m      circle radius
+    altitude: 1.5      # m      flight height
+    omega: 0.5         # rad/s  about 2.5 m/s along the circle
+    duration: 0.0      # s      0 means run until Ctrl-C
+
+    mass: 0.8          # kg     must match worlds/bare_world.xml
+    gravity: 9.81      # m/s^2
+    k_tau: 12.0        # N      thrust at u = 1, per motor
+    dt: 0.05           # s      horizon step; must match the generated solver
+
+    log_file: ""       # empty means ~/.quad_nmpc_ros/tracking_log.csv
