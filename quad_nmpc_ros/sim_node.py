@@ -16,6 +16,7 @@ PHYSICS_PER_TICK = 5
 TRAIL_EVERY = 10      # timer ticks between breadcrumbs -> 10 Hz
 TRAIL_RGBA  = (0.1, 0.9, 0.2, 1.0)
 TRAIL_SIZE  = 0.02    # m, sphere radius
+OMEGA    = 0.0     # hover test — reference is a fixed point
 
 class SimNode(Node):
 
@@ -35,8 +36,10 @@ class SimNode(Node):
 
         # 5  put the drone where the circle starts, before the first step
         self.joint = self.data.joint('drone_root')
-        self.joint.qpos[0:3] = [2.0, 0.0, 1.5]
-        self.joint.qpos[3:7] = [1.0, 0.0, 0.0, 0.0]      # MuJoCo order: w x y z
+        self.joint.qpos[0:3] = [5.0, 0.0, 1.5]
+        # facing +y: at t=0 the circle's tangent is +90 deg, so spawning at
+        # identity would hand the solver a 90 deg step on the very first tick.
+        self.joint.qpos[3:7] = [0.70710678, 0.0, 0.0, 0.70710678]   # MuJoCo order: w x y z
         mujoco.mj_forward(self.model, self.data)
 
 

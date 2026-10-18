@@ -24,7 +24,7 @@ def circle(t):
 
     The velocity is the exact derivative of the position. Feeding zeros makes
     the drone lag the circle badly — the controller uses it to know the
-    reference is moving rather than teleporting.
+    reference is moving rather than teleporting. Yaw here is heading tangent to the circle
     """
     pos = np.array([R * np.cos(OMEGA * t),
                     R * np.sin(OMEGA * t),
@@ -32,7 +32,8 @@ def circle(t):
     vel = np.array([-R * OMEGA * np.sin(OMEGA * t),
                      R * OMEGA * np.cos(OMEGA * t),
                      0.0])
-    return pos, vel
+    yaw = OMEGA*t+np.pi/2
+    return pos, vel , yaw
 
 class NmpcNode(Node):
     """Subscribes to the drone's state, publishes motor commands.
@@ -55,9 +56,10 @@ class NmpcNode(Node):
         N = self.ctrl.N
         self.positions  = np.zeros((N + 1, 3))
         self.velocities = np.zeros((N + 1, 3))
-        self.yaws       = np.zeros(N + 1)        # hold heading
+        self.yaws       = np.zeros(N + 1)          # heading, tangent to the path
 
         self.t0 = None          # sim time of the first odom message
+        self._turns = None  # double-cover offset, locked on the first odom
         self._next_report = 0.0
 
         # The flight log is written to disk AS WE FLY, one row per odometry
@@ -104,9 +106,17 @@ class NmpcNode(Node):
                            w.x, w.y, w.z])
 
         # --- where the circle will be across the whole horizon ---
+        if self._turns is None:
+            psi_meas = np.arctan2(2.0 * (q.w * q.z + q.x * q.y),
+                                  1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+            _, _, psi0 = circle(t)
+            self._turns = 2.0 * np.pi * round((psi_meas - psi0) / (2.0 * np.pi))
+
         N, dt = self.ctrl.N, self.ctrl.dt
+
         for k in range(N + 1):
-            self.positions[k], self.velocities[k] = circle(t + k * dt)
+            self.positions[k], self.velocities[k], psi = circle(t + k * dt)
+            self.yaws[k] = psi + self._turns
 
         self.ctrl.set_target_trajectory(self.positions, self.velocities, self.yaws)
         u = self.ctrl.compute_action(x_meas, None)
@@ -134,7 +144,6 @@ class NmpcNode(Node):
                 f'pos=({p.x:+.2f},{p.y:+.2f},{p.z:+.2f})')
             self._next_report += 1.0
 
-        # the plot is written by main()'s finally block on the way out
         if self.duration > 0.0 and t >= self.duration:
             self.get_logger().info(
                 f'reached duration {self.duration:.1f} s, stopping')
