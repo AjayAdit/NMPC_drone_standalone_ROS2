@@ -168,54 +168,6 @@ ros2 topic hz /odom      # ~100
 rqt_graph
 ```
 
-## Porting notes
-
-Three things the Python interface does silently that the C API does not. Each
-one costs a day if you have to find it twice.
-
-**The solver's online parameters are not zeroed.** The model carries 3 of them
-(a target-acceleration feedforward this build never uses). `acados_create`
-leaves them uninitialised, so the dynamics integrate garbage and every solve
-returns `ACADOS_MINSTEP`. `quad_13state_drone_acados_update_params` for every
-stage, once at construction.
-
-**The horizon is not seeded.** `nlp_out` starts at all zeros, and an all-zero
-quaternion is not a rotation. Seed every node's `x` with the identity pose
-(zeros, `qw = 1`).
-
-**Seeding `x` alone is not enough.** With the inputs left at zero the predicted
-trajectory is a free fall, which runs straight into the `z >= -0.4` state bound
-and hands HPIPM an infeasible QP -- status 4, with `u = 0` coming back out.
-Seed `u` at hover for nodes `0 .. N-1` as well. The Python does both, at
-`nmpc_controller.py` lines 93-96; it is two loops that are easy to skim past.
-
-## Conventions
-
-Two places where ROS and MuJoCo disagree, both handled at the message boundary:
-
-- **Quaternions.** ROS is scalar-last `(x,y,z,w)`; MuJoCo and the controller are
-  scalar-first `(w,x,y,z)`. Reordered in `sim_node.publish_odom` and
-  `nmpc_node.on_odom`.
-- **Twist frames.** `Odometry` says everything in `twist` is in `child_frame_id`.
-  MuJoCo's free joint gives linear velocity in the **world** frame and angular
-  velocity in the **body** frame, which is what the controller wants, so both are
-  passed through unchanged. Linear velocity therefore deviates from the ROS
-  convention.
-
-- **Quaternion double cover.** The yaw reference is turned into a quaternion as
-  `(cos(psi/2), sin(psi/2))`, so `psi` and `psi + 2*pi` are the same heading but
-  *opposite* quaternions, and the solver's quadratic cost reads that sign flip as
-  a 180 degree error. Because the reference heading climbs without bound and the
-  measured yaw comes back wrapped, the two need a constant `2*pi` offset to agree.
-  `nmpc_node` locks that offset on the first odometry message and never
-  recomputes it. Recomputing it per tick puts a `round()` in the loop, and
-  `round()` steps once per lap -- which negates the reference quaternion, once
-  every revolution, forever. That failure is silent for about fourteen laps and
-  then drops the drone out of the sky.
-
-Odometry is stamped with MuJoCo's `data.time`, not the wall clock. The reference
-trajectory is a function of that stamp, so the reference can never drift ahead of
-the physics when the simulator runs slower than real time.
 
 ## Licence
 
