@@ -6,6 +6,8 @@ Trajectory-tracking NMPC for a quadrotor, as ROS 2 packages.
 |---|---|---|
 | `quad_nmpc_ros` | Python | simulator + controller. The reference implementation. |
 | `quad_nmpc_ros_cpp` | C++ | the controller and its ROS wrapper -- everything that would run on the aircraft. Ships a copy of the Python simulator as a test fixture. |
+| `quadrotor_msgs` | msgs | `TRPYCommand` (thrust + body rates) and `PositionCommand`. |
+| `mujoco_ros_utils` | C++ | MuJoCo plugins, vendored from [MujocoRosUtils](https://github.com/isri-aist/MujocoRosUtils). Provides **AcroMode**, the body-rate loop the C++ pipeline flies through. |
 
 Both speak the same two topics, so either controller drives either simulator.
 Measured over 60 s against the same simulator, they agree to three decimals:
@@ -40,11 +42,22 @@ read off the model at startup, nothing is hard-coded.
 
 ## Requirements
 
+Exact versions of everything below, with install commands and porting notes:
+**[DEPENDENCIES.md](DEPENDENCIES.md)**.
+
 - ROS 2 Humble, with `nav_msgs` and `actuator_msgs`
 - Python 3.10 with `mujoco`, `casadi`, `numpy`, `acados_template`
 - [acados](https://docs.acados.org) built, with `ACADOS_SOURCE_DIR` set and
   `$ACADOS_SOURCE_DIR/lib` on `LD_LIBRARY_PATH`
 - `matplotlib` (only needed by `plot_log`, which renders the flight log afterwards)
+- For `mujoco_ros_utils` (the AcroMode plugin):
+  - the **pip** `mujoco` package (tested with 3.6.0). It ships the C headers and
+    `libmujoco.so.X.Y.Z`; the plugin is built against that exact copy, so it must
+    be the same `mujoco` the simulator imports
+  - GLFW 3.3: `sudo apt install libglfw3-dev`
+  - ROS 2 `std_srvs`, `tf2_ros`, `visualization_msgs`
+  - in a conda env, Humble's message generators need `pip install "empy==3.3.4" lark`.
+    empy 4 fails with `module 'em' has no attribute 'BUFFERED_OPT'`
 
 All of the above must be importable by **one** interpreter. If you use conda,
 install `colcon-common-extensions` into that same env:
@@ -61,9 +74,27 @@ git clone <this repo>
 cd ~/drone_ws
 export ACADOS_SOURCE_DIR=$HOME/acados          # needed by the C++ package
 export LD_LIBRARY_PATH=$ACADOS_SOURCE_DIR/lib:$LD_LIBRARY_PATH
-python -m colcon build --symlink-install
+# the AcroMode plugin builds against the pip MuJoCo the simulator imports
+MUJOCO_ROOT_DIR=$(python -c "import mujoco, os; print(os.path.dirname(mujoco.__file__))")
+python -m colcon build --symlink-install \
+  --cmake-args -DMUJOCO_ROOT_DIR=$MUJOCO_ROOT_DIR -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
+
+`-DMUJOCO_ROOT_DIR` is required by `mujoco_ros_utils` only; the other packages
+ignore it (CMake prints an "unused variable" note). Leave out
+`-DCMAKE_BUILD_TYPE` and the install step prints a harmless
+`CMake Error: Invalid value used with --config` from `cmake/uninstall.cmake`.
+
+Check that the plugin links to the same MuJoCo the simulator imports:
+
+```bash
+ldd install/mujoco_ros_utils/lib/libMujocoRosUtilsPlugin.so | grep libmujoco
+# libmujoco.so.3.6.0 => .../site-packages/mujoco/libmujoco.so.3.6.0
+```
+
+Two different copies means AcroMode registers in the wrong one and the world
+fails with `unrecognized plugin 'MujocoRosUtils::AcroMode'`.
 
 `python -m colcon`, not bare `colcon`. The generated node launchers inherit the
 shebang of whichever interpreter runs colcon -- run the system one and the nodes
@@ -96,15 +127,38 @@ ros2 run quad_nmpc_ros nmpc_node
 ros2 run quad_nmpc_ros sim_node
 ```
 
-### C++ controller
+### C++ controller, through AcroMode (default)
+
+The NMPC's output goes through a body-rate loop, like a real flight controller
+in acro mode:
+
+```
+nmpc_node ─/motor_cmd + /nmpc/body_rate_ref─> trpy_converter_node ─/quadrotor/trpy_cmd─> AcroMode (in sim_node) ─> thrust + 3 torques
+```
 
 ```bash
 # terminal 1 — ready in milliseconds; the solver is already compiled
 ros2 run quad_nmpc_ros_cpp nmpc_node
 
-# terminal 2
+# terminal 2 — u0..u3 + body rates -> TRPYCommand
+ros2 run quad_nmpc_ros_cpp trpy_converter_node
+
+# terminal 3 — loads the AcroMode plugin and worlds/bare_world_acro.xml
 ros2 run quad_nmpc_ros_cpp sim_node
 ```
+
+Without the converter nothing reaches AcroMode: the drone holds m·g and level
+attitude, but drifts with no position control.
+
+### C++ controller, motors direct (old pipeline)
+
+```bash
+ros2 run quad_nmpc_ros_cpp nmpc_node                                  # terminal 1
+ros2 run quad_nmpc_ros_cpp sim_node --ros-args -p acro_mode:=false    # terminal 2
+```
+
+Both pipelines reach the same 1.4 mm steady error on the circle; see
+`quad_nmpc_ros_cpp/post_analysis/comparison.md`.
 
 ### Mixed, which is the interesting one
 
