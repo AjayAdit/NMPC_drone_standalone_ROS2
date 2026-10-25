@@ -1,0 +1,13 @@
+run_id: 2026-10-25_run02_acromode
+created: '2026-10-25T17:12:57'
+what_changed: 'AcroMode: converter -> TRPYCommand -> AcroMode rate loop (kw 20/35/45,
+  J from model)'
+baseline: false
+significant: true
+verdict: same steady state as baseline; z startup overshoot +23 % (0.196 vs 0.159
+  m)
+git:
+  commit: 94408fb
+  dirty: true
+notes: Inner rate loop adds lag the NMPC does not model; only visible in the first
+  second.

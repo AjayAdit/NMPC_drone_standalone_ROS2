@@ -1,0 +1,14 @@
+item,metric,value,unit
+x,rmse,0.00301247,m
+x,mean_abs,0.00164434,m
+x,max_abs,0.032887,m
+x,final_abs,0.00140914,m
+y,rmse,0.0249847,m
+y,mean_abs,0.00384981,m
+y,max_abs,0.366667,m
+y,final_abs,0.00138559,m
+z,rmse,0.0103261,m
+z,mean_abs,0.00132739,m
+z,max_abs,0.158739,m
+z,final_abs,0.000318,m
+z,settled_at,0.89,s

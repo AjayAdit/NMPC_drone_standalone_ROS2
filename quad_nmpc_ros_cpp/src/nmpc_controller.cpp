@@ -125,7 +125,9 @@ void NmpcController::setTargetTrajectory(
       ref[6] = qw;
       ref[9] = qz;
       ocp_nlp_cost_model_set(impl_->config, impl_->dims, impl_->in, k, "yref", ref.data());
-    } else {
+    } 
+    
+    else {
       auto ref_e = impl_->yref_e;             // 13 long: no input slots
       std::copy(positions[k].begin(), positions[k].end(), ref_e.begin());
       std::copy(velocities[k].begin(), velocities[k].end(), ref_e.begin() + 3);
@@ -148,6 +150,13 @@ NmpcController::Input NmpcController::computeAction(const State & x_meas)
 
   status_ = quad_13state_drone_acados_solve(impl_->capsule);
 
+  if (status_ == 0) {
+    State x1 {};   // "x" writes all kNx values; a Vec3 here would overflow
+    ocp_nlp_out_get(impl_->config, impl_->dims, impl_->out, 1, "x", x1.data());
+    std::copy(x1.begin() + 10, x1.begin() + 13, omega_ref_.begin());
+  }
+
+  
   Input u {};
   ocp_nlp_out_get(impl_->config, impl_->dims, impl_->out, 0, "u", u.data());
   for (auto & ui : u) {
@@ -155,5 +164,8 @@ NmpcController::Input NmpcController::computeAction(const State & x_meas)
   }
   return u;
 }
-
+NmpcController::Vec3 NmpcController::predictedBodyRates() const
+{
+  return omega_ref_;
+}
 }  // namespace quad_nmpc_ros_cpp

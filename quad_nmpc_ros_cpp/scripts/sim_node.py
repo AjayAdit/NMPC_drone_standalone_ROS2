@@ -16,7 +16,7 @@ import os
 
 import mujoco
 import numpy as np
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, get_package_prefix
 
 from nav_msgs.msg import Odometry
 from actuator_msgs.msg import Actuators
@@ -33,14 +33,33 @@ class SimNode(Node):
     def __init__(self):
         super().__init__('sim_node')
         share_dir  = get_package_share_directory('quad_nmpc_ros_cpp')
-        world_path = os.path.join(share_dir, 'worlds', 'bare_world.xml')
+
+        # acro_mode true (default): AcroMode flies the drone from TRPYCommand on
+        # /quadrotor/trpy_cmd. false: the old pipeline, this node sets the four
+        # motors from /motor_cmd. Kept so the two can be compared.
+        #   ros2 run quad_nmpc_ros_cpp sim_node --ros-args -p acro_mode:=false
+        self.declare_parameter('acro_mode', True)
+        self.acro = bool(self.get_parameter('acro_mode').value)
+
+        world = 'bare_world_acro.xml' if self.acro else 'bare_world.xml'
+        world_path = os.path.join(share_dir, 'worlds', world)
+        if self.acro:
+            # Register AcroMode with THIS process's MuJoCo before compiling the
+            # XML that names it, or: "unrecognized plugin".
+            plugin = os.path.join(get_package_prefix('mujoco_ros_utils'),
+                                  'lib', 'libMujocoRosUtilsPlugin.so')
+            mujoco.mj_loadPluginLibrary(plugin)
+        self.get_logger().info(f'world: {world}')
 
         self.model = mujoco.MjModel.from_xml_path(world_path)
         self.data  = mujoco.MjData(self.model)
 
         # 4  full-throttle thrust per motor, in Newtons.
         #    normalized u in [0,1]  ->  data.ctrl = k_tau * u**2
-        self.k_tau = float(self.model.actuator_ctrlrange[0, 1])
+        # Old pipeline only: in the acro world actuator 0 is fz (0..48 N), so
+        # this would read 48, not k_tau.
+        if not self.acro:
+            self.k_tau = float(self.model.actuator_ctrlrange[0, 1])
 
 
         # 5  put the drone where the circle starts, before the first step
@@ -59,8 +78,10 @@ class SimNode(Node):
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
 
         # 8  motor commands, in.  Keep the handle or it gets collected.
-        self._cmd_sub = self.create_subscription(
-            Actuators, '/motor_cmd', self.on_motor_cmd, 10)
+        #    Old pipeline only; in acro mode AcroMode subscribes on its own.
+        if not self.acro:
+            self._cmd_sub = self.create_subscription(
+                Actuators, '/motor_cmd', self.on_motor_cmd, 10)
 
         # 9  the viewer. No `with` — we spin, we don't loop.
         self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
@@ -83,7 +104,9 @@ class SimNode(Node):
 
     def step(self):
         # 12a normalized [0,1] -> Newtons
-        self.data.ctrl[:] = self.k_tau * self.u ** 2
+        #     Acro mode: AcroMode writes data.ctrl itself, inside mj_step.
+        if not self.acro:
+            self.data.ctrl[:] = self.k_tau * self.u ** 2
 
         # 12b advance physics
         for _ in range(PHYSICS_PER_TICK):

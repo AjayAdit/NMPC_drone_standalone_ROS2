@@ -1,0 +1,14 @@
+/trpy_converter_node:
+  ros__parameters:
+    call_payload_service: false
+    k_tau: 12.0
+    output_topic: /quadrotor/trpy_cmd
+    qos_overrides:
+      /parameter_events:
+        publisher:
+          depth: 1000
+          durability: volatile
+          history: keep_last
+          reliability: reliable
+    use_sim_time: false
+

@@ -17,6 +17,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "actuator_msgs/msg/actuators.hpp"
+ #include "geometry_msgs/msg/vector3_stamped.hpp"
 
 #include "quad_nmpc_ros_cpp/nmpc_controller.hpp"
 
@@ -60,8 +61,9 @@ public:
     openLog(log_file);
 
     cmd_pub_ = create_publisher<actuator_msgs::msg::Actuators>("/motor_cmd", 10);
+    rate_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>("/nmpc/body_rate_ref", 10);
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      "/odom", 10, [this](nav_msgs::msg::Odometry::SharedPtr msg) {onOdom(*msg);});
+      "/odom", 10, [this](nav_msgs::msg::Odometry::ConstSharedPtr msg) {onOdom(*msg);});
   }
 
   ~NmpcNode() override
@@ -151,6 +153,14 @@ private:
     cmd.header.stamp = msg.header.stamp;
     cmd.normalized.assign(u.begin(), u.end());
     cmd_pub_->publish(cmd);
+    geometry_msgs::msg::Vector3Stamped rate ;
+    rate.header.stamp =msg.header.stamp;
+    rate.header.frame_id ="base_link";
+    const auto w_ref =ctrl_->predictedBodyRates();
+    rate.vector.x = w_ref[0];
+    rate.vector.y = w_ref[1];
+    rate.vector.z = w_ref[2];
+    rate_pub_->publish(rate);
 
     const auto & ref = positions_[0];
     const double err = std::hypot(std::hypot(ref[0] - p.x, ref[1] - p.y), ref[2] - p.z);
@@ -222,6 +232,7 @@ private:
 
   std::unique_ptr<NmpcController> ctrl_;
   rclcpp::Publisher<actuator_msgs::msg::Actuators>::SharedPtr cmd_pub_;
+  rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr rate_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
   std::vector<NmpcController::Vec3> positions_, velocities_;

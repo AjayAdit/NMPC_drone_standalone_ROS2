@@ -1,0 +1,6 @@
+/sim_node:
+  ros__parameters:
+    acro_mode: false
+    duration: 63.0
+    use_sim_time: false
+

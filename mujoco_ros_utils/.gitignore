@@ -1,0 +1,12 @@
+build
+.vscode
+
+*~
+*.pyc
+
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+
+plugin/lib

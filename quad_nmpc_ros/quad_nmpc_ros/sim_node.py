@@ -31,7 +31,7 @@ class SimNode(Node):
 
         # 4  full-throttle thrust per motor, in Newtons.
         #    normalized u in [0,1]  ->  data.ctrl = k_tau * u**2
-        self.k_tau = float(self.model.actuator_ctrlrange[0, 1])
+        self.k_tau = float(self.model.actuator_ctrlrange[0, 1]) # Reads max thrust from moytor
 
 
         # 5  put the drone where the circle starts, before the first step
@@ -40,7 +40,7 @@ class SimNode(Node):
         # facing +y: at t=0 the circle's tangent is +90 deg, so spawning at
         # identity would hand the solver a 90 deg step on the very first tick.
         self.joint.qpos[3:7] = [0.70710678, 0.0, 0.0, 0.70710678]   # MuJoCo order: w x y z
-        mujoco.mj_forward(self.model, self.data)
+        mujoco.mj_forward(self.model, self.data) # Reeads model used data recomputes and writes back into data
 
 
         # 6  last motor command received; step() runs before nmpc_node speaks
@@ -70,7 +70,7 @@ class SimNode(Node):
 
     def on_motor_cmd(self,msg):
         # 11 hold the command; the timer applies it
-        self.u = np.asarray(msg.normalized, dtype=float)
+        self.u = np.asarray(msg.normalized, dtype=float) # Convert python list to numpy array
 
     def step(self):
         # 12a normalized [0,1] -> Newtons

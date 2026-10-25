@@ -110,9 +110,9 @@ class NmpcNode(Node):
         # --- where the circle will be across the whole horizon ---
         if self._turns is None:
             psi_meas = np.arctan2(2.0 * (q.w * q.z + q.x * q.y),
-                                  1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+                                  1.0 - 2.0 * (q.y * q.y + q.z * q.z)) # drone's heading, ie yaw from quaternion
             _, _, psi0 = circle(t)
-            self._turns = 2.0 * np.pi * round((psi_meas - psi0) / (2.0 * np.pi))
+            self._turns = 2.0 * np.pi * round((psi_meas - psi0) / (2.0 * np.pi)) # ensures psi is always between + or - 180 along with line self.yaws[k] = psi + self._turns
 
         N, dt = self.ctrl.N, self.ctrl.dt
 
@@ -121,7 +121,7 @@ class NmpcNode(Node):
             self.yaws[k] = psi + self._turns
 
         self.ctrl.set_target_trajectory(self.positions, self.velocities, self.yaws)
-        u = self.ctrl.compute_action(x_meas, None)
+        u = self.ctrl.compute_action(x_meas, None)# used with ktau to fidn drone thrust
 
         # acados sets .status on every solve. Non-zero means the QP did not
         # converge, and compute_action returns whatever was left in node 0
@@ -140,9 +140,9 @@ class NmpcNode(Node):
             self._last_good_u = u
             self._bad_solves  = 0
 
-        cmd = Actuators()
-        cmd.header.stamp = msg.header.stamp
-        cmd.normalized = u.tolist()
+        cmd = Actuators() # empty cmd message 
+        cmd.header.stamp = msg.header.stamp # gets time stamp from odom
+        cmd.normalized = u.tolist() # Converts numpy to python list
         self.cmd_pub.publish(cmd)
 
         ref = self.positions[0]

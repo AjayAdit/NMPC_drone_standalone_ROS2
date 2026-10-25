@@ -1,0 +1,37 @@
+<package format="3">
+  <name>mujoco_ros_utils</name>
+  <version>0.1.0</version>
+  <description>
+    ROS-based MuJoCo utilities
+  </description>
+  <maintainer email="m-murooka@aist.go.jp">Masaki Murooka</maintainer>
+  <license>BSD</license>
+
+  <url>http://ros.org/wiki/mujoco_ros_utils</url>
+  <author>Masaki Murooka</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+
+  <depend>libglfw3-dev</depend>
+  <depend>rclcpp</depend>
+  <depend>std_srvs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>quadrotor_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>sensor_msgs</depend>
+
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <doc_depend>doxygen</doc_depend>
+  <doc_depend>graphviz</doc_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

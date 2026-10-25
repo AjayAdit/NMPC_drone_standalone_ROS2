@@ -56,6 +56,10 @@ public:
   // acados status from the last computeAction(). 0 means converged.
   int status() const {return status_;}
 
+    // omega (body frame, rad/s) at node 1 of the last CONVERGED solve.
+  // Zero until the first good solve.
+  Vec3 predictedBodyRates() const;
+
   int horizon() const {return kN;}
   double dt() const {return dt_;}
   double hoverInput() const {return u_hover_;}
@@ -66,6 +70,7 @@ private:
   double dt_;
   double u_hover_;
   int status_ {0};
+  Vec3 omega_ref_{};
 };
 
 }  // namespace quad_nmpc_ros_cpp

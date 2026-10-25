@@ -1,0 +1,3 @@
+run_id,what_changed,baseline,significant,verdict,x.rmse,y.rmse,z.rmse,z.max_abs,z.settled_at
+2026-10-25_run01_motor-direct,old pipeline: sim_node sets 4 motors from /motor_cmd (acro_mode:=false),True,True,"baseline: steady 1.4 mm/axis; start transient 0.37 m (y), 0.16 m z overshoot",0.00301247,0.0249847,0.0103261,0.158739,0.89
+2026-10-25_run02_acromode,"AcroMode: converter -> TRPYCommand -> AcroMode rate loop (kw 20/35/45, J from model)",False,True,same steady state as baseline; z startup overshoot +23 % (0.196 vs 0.159 m),0.00166451,0.0247695,0.013097,0.195668,0.89

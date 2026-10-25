@@ -19,9 +19,14 @@
   <depend>rclcpp</depend>
   <depend>nav_msgs</depend>
   <depend>actuator_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>quadrotor_msgs</depend>
+  <depend>std_srvs</depend>
 
   <!-- only for the bundled Python simulator, scripts/sim_node.py -->
   <exec_depend>rclpy</exec_depend>
+  <!-- sim_node loads libMujocoRosUtilsPlugin.so (AcroMode) from it -->
+  <exec_depend>mujoco_ros_utils</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

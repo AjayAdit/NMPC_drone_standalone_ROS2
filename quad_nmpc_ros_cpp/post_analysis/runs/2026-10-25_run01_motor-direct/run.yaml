@@ -1,0 +1,11 @@
+run_id: 2026-10-25_run01_motor-direct
+created: '2026-10-25T17:12:57'
+what_changed: 'old pipeline: sim_node sets 4 motors from /motor_cmd (acro_mode:=false)'
+baseline: true
+significant: true
+verdict: 'baseline: steady 1.4 mm/axis; start transient 0.37 m (y), 0.16 m z overshoot'
+git:
+  commit: 94408fb
+  dirty: true
+notes: Reference starts at 2.5 m/s while the drone is at rest -> startup transient
+  dominates max/RMSE.

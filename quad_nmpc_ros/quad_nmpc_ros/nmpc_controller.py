@@ -25,12 +25,12 @@ class NMPC:
         callers see no change. Pass them to fly a different quadrotor, or use
         from_mujoco_model() to read them straight out of an XML.
         """
-        # NMPC parameters  
+        # NMPC parameters  {}
         self.N = int(N)
         self.dt = float(dt)
         self.Tf = self.N * self.dt
         # Drone params 
-        self.mass = mass        # kg   <inertial mass="...">
+        self.mass = mass        # kg   <inertial mass="...">][]
         self.g = g           
         self.Ixx, self.Iyy, self.Izz = Ixx, Iyy, Izz   # <inertial diaginertia="...">
         self.l = l             

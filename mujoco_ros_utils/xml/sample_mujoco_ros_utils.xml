@@ -1,0 +1,125 @@
+<mujoco model="sample_mujoco_ros_utils">
+  <compiler autolimits="true"/>
+
+  <extension>
+    <plugin plugin="MujocoRosUtils::ClockPublisher"/>
+    <plugin plugin="MujocoRosUtils::PosePublisher"/>
+    <plugin plugin="MujocoRosUtils::ImagePublisher"/>
+    <plugin plugin="MujocoRosUtils::ActuatorCommand"/>
+    <plugin plugin="MujocoRosUtils::ExternalForce"/>
+    <plugin plugin="MujocoRosUtils::SensorPublisher"/>
+  </extension>
+
+  <asset>
+    <texture name="floor" type="2d" builtin="checker" rgb1="0.1 0.2 0.3" rgb2="0.2 0.3 0.4" width="300" height="300" mark="edge" markrgb="0.2 0.3 0.4"/>
+    <material name="floor" texture="floor" texrepeat="10 10" texuniform="true"/>
+  </asset>
+
+  <visual>
+    <headlight ambient="0.7 0.7 0.7" diffuse="0.2 0.2 0.2" specular="0.1 0.1 0.1"/>
+    <map znear="0.01"/>
+    <scale contactwidth="0.02" contactheight="0.5"/>
+    <rgba rangefinder="1 1 0.1 0.1"/>
+  </visual>
+
+  <statistic center="0 0 1" extent="1" meansize="0.1"/>
+
+  <worldbody>
+    <plugin plugin="MujocoRosUtils::ClockPublisher">
+      <config key="topic_name" value="/clock"/>
+      <config key="publish_rate" value="100"/>
+      <config key="use_sim_time" value="true"/>
+    </plugin>
+
+    <light pos="1 0 0.3" dir="-1 0 -0.3"/>
+    <light pos="-1 0 0.3" dir="1 0 -0.3"/>
+
+    <geom name="floor" type="plane" material="floor" size="10.0 10.0 0.01" pos="0 0 -0.01"/>
+
+    <body name="object" pos="0 0 1">
+      <freejoint/>
+      <site name="object_center"/>
+      <geom type="box" size="0.2 0.2 0.1" mass="0.1" rgba="0.5 1.0 0.5 1.0"/>
+      <plugin plugin="MujocoRosUtils::ExternalForce">
+        <config key="topic_name" value="/external_force"/>
+        <config key="vis_scale" value="0.1"/>
+      </plugin>
+    </body>
+
+    <body name="camera" pos="0 1.0 1.0" euler="-30 0 180">
+      <joint name="camera_pan" axis="0 1 0" range="-90 90" damping="0.5" armature="0.1"/>
+      <joint name="camera_tilt" axis="1 0 0" range="-90 90" damping="0.5" armature="0.1"/>
+      <camera name="camera" fovy="58"/>
+      <body name="camera_frame" euler="180 0 0"/>
+      <body name="camera_marker" pos="0 0 0.05">
+        <geom type="box" size="0.08 0.05 0.03" mass="1.0" rgba="0.5 0.5 1.0 1.0"/>
+        <geom type="box" size="0.01 0.01 0.01" mass="0.0" rgba="0.5 0.5 1.0 1.0" pos="0.04 0.055 0"/>
+        <geom type="cylinder" size="0.03 0.01" mass="0.0" rgba="0.5 0.5 1.0 1.0" pos="0 0 -0.04"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="camera_pan" joint="camera_pan"/>
+    <position name="camera_tilt" joint="camera_tilt"/>
+
+    <plugin plugin="MujocoRosUtils::ActuatorCommand" joint="camera_pan">
+      <config key="actuator_name" value="camera_pan"/>
+      <config key="topic_name" value="/camera_pan"/>
+    </plugin>
+  </actuator>
+
+  <sensor>
+    <plugin name="pose_publisher" plugin="MujocoRosUtils::PosePublisher" objtype="xbody" objname="object">
+      <config key="frame_id" value="map"/>
+      <config key="pose_topic_name" value="/pose"/>
+      <config key="vel_topic_name" value="/vel"/>
+      <config key="publish_rate" value="30"/>
+      <config key="output_tf" value="false"/>
+      <!-- <config key="tf_child_frame_id" value="object"/> -->
+    </plugin>
+
+    <plugin name="tf_publisher" plugin="MujocoRosUtils::PosePublisher" objtype="xbody" objname="camera_frame">
+      <config key="frame_id" value="map"/>
+      <!-- <config key="pose_topic_name" value="/pose"/> -->
+      <!-- <config key="vel_topic_name" value="/vel"/> -->
+      <config key="publish_rate" value="30"/>
+      <config key="output_tf" value="true"/>
+      <config key="tf_child_frame_id" value="camera"/>
+    </plugin>
+
+    <plugin name="image_publisher" plugin="MujocoRosUtils::ImagePublisher" objtype="camera" objname="camera">
+      <config key="frame_id" value="camera"/>
+      <config key="color_topic_name" value="/image/color"/>
+      <config key="depth_topic_name" value="/image/depth"/>
+      <config key="info_topic_name" value="/image/camera_info"/>
+      <config key="height" value="240"/>
+      <config key="width" value="320"/>
+      <config key="publish_rate" value="30"/>
+    </plugin>
+
+    <rangefinder name="box_rangefinder" site="object_center"/>
+    <plugin name="sensor_publisher_scalar" plugin="MujocoRosUtils::SensorPublisher" objtype="xbody" objname="object">
+      <config key="sensor_name" value="box_rangefinder"/>
+      <config key="frame_id" value="map"/>
+      <config key="topic_name" value="/box_rangefinder"/>
+      <config key="publish_rate" value="30"/>
+    </plugin>
+
+    <framepos name="box_framepos" objtype="site" objname="object_center"/>
+    <plugin name="sensor_publisher_point" plugin="MujocoRosUtils::SensorPublisher" objtype="xbody" objname="object">
+      <config key="sensor_name" value="box_framepos"/>
+      <config key="frame_id" value="map"/>
+      <config key="topic_name" value="/box_framepos"/>
+      <config key="publish_rate" value="30"/>
+    </plugin>
+
+    <framequat name="box_framequat" objtype="site" objname="object_center"/>
+    <plugin name="sensor_publisher_quat" plugin="MujocoRosUtils::SensorPublisher" objtype="xbody" objname="object">
+      <config key="sensor_name" value="box_framequat"/>
+      <config key="frame_id" value="map"/>
+      <config key="topic_name" value="/box_framequat"/>
+      <config key="publish_rate" value="30"/>
+    </plugin>
+  </sensor>
+</mujoco>

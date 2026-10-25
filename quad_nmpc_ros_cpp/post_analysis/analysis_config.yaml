@@ -1,0 +1,27 @@
+# analysis_config.yaml - WHAT to record and analyse. Set up once per project; edit any time.
+# Used by scripts/pa.py. Every name under `signals` is one key value.
+#
+# Data: nmpc_node's own flight log (nmpc_node.cpp openLog/logRow), one row per
+# /odom tick, t in SIM seconds from the first odom. Point nmpc_node at the run:
+#   ros2 run quad_nmpc_ros_cpp nmpc_node --ros-args -p log_file:=<run>/raw/log.csv
+project: quad_nmpc_ros_cpp
+source: csv
+csv_time_column: t
+
+signals:
+  ref_x: {column: ref_x, unit: m}
+  ref_y: {column: ref_y, unit: m}
+  ref_z: {column: ref_z, unit: m}
+  x:     {column: x, unit: m}
+  y:     {column: y, unit: m}
+  z:     {column: z, unit: m}
+  err:   {column: err_cm, unit: cm}
+
+pairs:                 # smooth circle reference -> linear interpolation
+  - {name: x, expected: ref_x, actual: x, unit: m, expected_interp: linear}
+  - {name: y, expected: ref_y, actual: y, unit: m, expected_interp: linear}
+  - {name: z, expected: ref_z, actual: z, unit: m, expected_interp: linear, settle_tol: 0.02}
+
+plots: [err]
+
+compare_columns: [x.rmse, y.rmse, z.rmse, z.max_abs, z.settled_at]

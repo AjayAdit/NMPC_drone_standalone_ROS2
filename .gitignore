@@ -9,3 +9,6 @@ log/
 
 .vscode/
 .idea/
+
+# post-analysis raw data (large)
+quad_nmpc_ros_cpp/post_analysis/runs/*/raw/

@@ -13,6 +13,9 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(actuator_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(quadrotor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # ---------------------------------------------------------------------------
 # acados
@@ -71,9 +74,17 @@ add_executable(nmpc_node
 target_include_directories(nmpc_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(nmpc_node acados_generated_solver)
-ament_target_dependencies(nmpc_node rclcpp nav_msgs actuator_msgs)
+ament_target_dependencies(nmpc_node rclcpp nav_msgs actuator_msgs geometry_msgs)
 
-install(TARGETS nmpc_node DESTINATION lib/${PROJECT_NAME})
+# ---------------------------------------------------------------------------
+# The converter: /motor_cmd + /nmpc/body_rate_ref -> TRPYCommand for AcroMode.
+# No acados here -- it only adds up k_tau * u^2 and copies the rates.
+# ---------------------------------------------------------------------------
+add_executable(trpy_converter_node src/trpy_converter_node.cpp)
+ament_target_dependencies(trpy_converter_node
+  rclcpp actuator_msgs geometry_msgs quadrotor_msgs std_srvs)
+
+install(TARGETS nmpc_node trpy_converter_node DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/sim_node.py
         DESTINATION lib/${PROJECT_NAME}
         RENAME sim_node)
