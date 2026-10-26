@@ -10,6 +10,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(actuator_msgs REQUIRED)
@@ -21,7 +22,7 @@ find_package(std_srvs REQUIRED)
 # acados
 #
 # ACADOS_SOURCE_DIR must point at an acados build tree. The same variable the
-# Python package already needs, so if quad_nmpc_ros runs, this finds it too.
+# Python NMPC (scripts/quad_nmpc_ros) needs, so if one runs, so does the other.
 # ---------------------------------------------------------------------------
 if(DEFINED ENV{ACADOS_SOURCE_DIR})
   set(ACADOS_DIR $ENV{ACADOS_SOURCE_DIR})
@@ -88,6 +89,19 @@ install(TARGETS nmpc_node trpy_converter_node DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/sim_node.py
         DESTINATION lib/${PROJECT_NAME}
         RENAME sim_node)
+
+# ---------------------------------------------------------------------------
+# Python: the NMPC library and nodes in scripts/quad_nmpc_ros, importable as
+# `quad_nmpc_ros`, plus thin launchers. The Python NMPC is the acados code
+# generator (scripts/regenerate.sh) and a second controller to compare with.
+# ---------------------------------------------------------------------------
+ament_python_install_package(quad_nmpc_ros PACKAGE_DIR scripts/quad_nmpc_ros)
+install(PROGRAMS scripts/nmpc_node_py.py
+        DESTINATION lib/${PROJECT_NAME}
+        RENAME nmpc_node_py)
+install(PROGRAMS scripts/plot_log.py
+        DESTINATION lib/${PROJECT_NAME}
+        RENAME plot_log)
 install(DIRECTORY worlds config launch DESTINATION share/${PROJECT_NAME})
 
 ament_package()

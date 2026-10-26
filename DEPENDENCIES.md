@@ -23,7 +23,7 @@ Recorded on 2026-10-25 from the machine that produced
 |---|---|---|
 | `ros-humble-desktop` | 0.10.0 | everything (`ros-base` 0.10.0 is enough without rviz) |
 | `ros-humble-rclcpp` | 16.0.19 | C++ nodes, AcroMode plugin |
-| `ros-humble-rclpy` | 3.3.21 | `sim_node`, Python package |
+| `ros-humble-rclpy` | 3.3.21 | `sim_node`, Python NMPC (`scripts/quad_nmpc_ros`) |
 | `ros-humble-actuator-msgs` | 0.0.1 | `/motor_cmd` (not in desktop: install it) |
 | `ros-humble-nav-msgs` | 4.9.1 | `/odom` |
 | `ros-humble-geometry-msgs` | 4.9.1 | `/nmpc/body_rate_ref`, msgs |
@@ -78,7 +78,7 @@ pip install -e ~/acados/interfaces/acados_template
 | `lark` | 1.3.1 | Humble message generation (`rosidl_parser`) |
 | `catkin-pkg` | 1.1.1 | colcon |
 | `colcon-common-extensions` | 0.3.0 (`colcon-core` 0.21.3) | build, if built from the conda env |
-| `setuptools` | 79.0.1 | `quad_nmpc_ros` (ament_python) |
+| `setuptools` | 79.0.1 | colcon (the Python NMPC is installed by `ament_cmake_python`) |
 | `matplotlib` | 3.10.6 | `plot_log`, `post_analysis/scripts/pa.py` |
 | `PyYAML` | 6.0.3 | `post_analysis/scripts/pa.py` |
 

@@ -2,11 +2,11 @@
 # Installed as a plain program, not a setuptools console_script, so it
 # needs its own shebang. env python3 resolves to whichever interpreter is
 # first on PATH -- activate the conda env that owns rclpy and mujoco before
-# running, exactly as for quad_nmpc_ros.
+# running.
 #
-# A COPY of quad_nmpc_ros/sim_node.py, so this package stands alone. The
-# simulator is a test fixture, not flight software, which is why it stays
-# in Python while the controller does not.
+# The one simulator, for both controllers (C++ nmpc_node, Python nmpc_node_py).
+# It is a test fixture, not flight software, which is why it stays in Python
+# while the controller does not.
 import rclpy
 from rclpy.node import Node
 import mujoco.viewer

@@ -1,77 +1,17 @@
 <!--
-  bare_world.xml — minimal world for the standalone NMPC controller.
-  No car, no mocap target, no camera, no perception. Floor + one quadrotor.
-
-  The airframe is DELIBERATELY NOT NOVA'S:
-      mass     0.80 kg            (NOVA: 1.25)
-      inertia  0.006 0.006 0.011  (NOVA: 0.01 0.01 0.02)
-      arm      0.18 m             (NOVA: 0.125)
-      k_tau    12.0               (NOVA: 20.0)
-      gear[5]  0.016              (NOVA: 0.022)
-
-  If from_mujoco_model() works, it reads these and the drone flies.
-  If it were still using the hardcoded NOVA numbers, it would not.
+  bare_world.xml - the drone with 4 motors, set by sim_node (acro_mode:=false).
+  Floor + one quadrotor, both from quadrotor.xml. This file adds only the motors.
+  The NMPC model (mass, inertia, arm, k_tau, k_mu) is read from THIS file.
 -->
-
 <mujoco model="bare_world">
-    <option gravity="0 0 -9.81" timestep="0.002" />
-    <compiler angle="radian" />
-
-    <visual>
-        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" />
-        <rgba haze="0.15 0.25 0.35 1" />
-    </visual>
-
-    <asset>
-        <texture type="skybox" builtin="gradient" rgb1="0.88 0.88 0.88"
-                 rgb2="0.88 0.88 0.88" width="512" height="512" />
-        <texture name="grid" type="2d" builtin="checker" width="512" height="512"
-                 rgb1="0 0 0" rgb2="1 1 1" />
-        <material name="grid" texture="grid" texrepeat="8 8" reflectance="0.1" />
-        <material name="frame" rgba="0.25 0.25 0.28 1" />
-        <material name="prop"  rgba="0.85 0.35 0.1 0.9" />
-    </asset>
-
-    <worldbody>
-        <light pos="0 0 6" dir="0 0 -1" directional="true" />
-        <geom name="floor" type="plane" size="20 20 0.05" material="grid" />
-
-        <!-- Name must match what from_mujoco_model() looks up. -->
-        <body name="quadrotor" pos="0 0 0.5">
-            <freejoint name="drone_root" />
-            <inertial pos="0 0 0" mass="0.8" diaginertia="0.006 0.006 0.011" />
-
-            <geom type="box" size="0.05 0.05 0.015" material="frame" mass="0" />
-
-            <!-- X-config arms, motors at (+/-0.18, +/-0.18) -->
-            <geom type="capsule" fromto="0.18 0.18 0 -0.18 -0.18 0"
-                  size="0.007" material="frame" mass="0" />
-            <geom type="capsule" fromto="0.18 -0.18 0 -0.18 0.18 0"
-                  size="0.007" material="frame" mass="0" />
-             <!-- propellers -->
-            <geom name="prop0" type="cylinder" pos=" 0.18  0.18 0.018"
-                  size="0.07 0.002" material="prop" mass="0" />
-            <geom name="prop1" type="cylinder" pos="-0.18  0.18 0.018"
-                  size="0.07 0.002" material="prop" mass="0" />
-            <geom name="prop2" type="cylinder" pos="-0.18 -0.18 0.018"
-                  size="0.07 0.002" material="prop" mass="0" />
-            <geom name="prop3" type="cylinder" pos=" 0.18 -0.18 0.018"
-                  size="0.07 0.002" material="prop" mass="0" />
-
-            <!-- Thrust sites: from_mujoco_model() reads l from their y-offset. Position and direction (up ) at the propeller, where the real push from the motor is applied.-->
-            <site name="thrust0" pos=" 0.18  0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
-            <site name="thrust1" pos="-0.18  0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
-            <site name="thrust2" pos="-0.18 -0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
-            <site name="thrust3" pos=" 0.18 -0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
-        </body>
-    </worldbody>
+    <include file="quadrotor.xml" />
 
     <!--
       The four motors. m0 pushes at site thrust0, and so on.
-      The sites above mark the spot and the up-direction. These lines apply the push.
+      The sites mark the spot and the up-direction. These lines apply the push.
 
       ctrlrange="0 12.0" is that push in newtons: 0 is off, 12 is full thrust.
-      12 is k_tau. The controller sends u from 0 to 1, and sim_world converts it
+      12 is k_tau. The controller sends u from 0 to 1, and sim_node converts it
       with thrust = k_tau * u * u before it arrives here.
 
       gear is 6 numbers in the site frame: force x y z, then twist x y z.

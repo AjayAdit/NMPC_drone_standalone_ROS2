@@ -1,7 +1,7 @@
-# ROS 2 Kilted (Ubuntu 24.04) image for quad_nmpc_ros: clones the repo and builds it,
+# ROS 2 Kilted (Ubuntu 24.04) image for this repo: clones it and builds it,
 # so a passing build here means a fresh clone builds on Kilted.
 #
-#   docker build -t nmpc-kilted docker/kilted                      # branch cpp
+#   docker build -t nmpc-kilted docker/kilted                      # branch main
 #   docker build -t nmpc-kilted --build-arg REPO_REF=<sha> docker/kilted
 #   docker/kilted/run.sh                                          # shell with GPU + X11
 #
@@ -45,7 +45,7 @@ ENV PATH=${VIRTUAL_ENV}/bin:${PATH}
 
 # --- the repo, exactly as a stranger would get it
 ARG REPO_URL=https://github.com/AjayAdit/NMPC_drone_standalone_ROS2.git
-ARG REPO_REF=cpp
+ARG REPO_REF=main
 WORKDIR /ws
 RUN git clone ${REPO_URL} src/quad_nmpc_ros \
  && cd src/quad_nmpc_ros && git checkout ${REPO_REF} && git log -1 --oneline

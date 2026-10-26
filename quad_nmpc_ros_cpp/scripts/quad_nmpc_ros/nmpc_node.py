@@ -44,7 +44,7 @@ class NmpcNode(Node):
 
         # the controller reads mass, inertia, arm length and k_tau off the XML,
         # so this node loads the model too. It never steps it.
-        share_dir  = get_package_share_directory('quad_nmpc_ros')
+        share_dir  = get_package_share_directory('quad_nmpc_ros_cpp')
         world_path = os.path.join(share_dir, 'worlds', 'bare_world.xml')
         model = mujoco.MjModel.from_xml_path(world_path)
 
@@ -67,7 +67,7 @@ class NmpcNode(Node):
         # The flight log is written to disk AS WE FLY, one row per odometry
         # message. Nothing about it depends on a clean shutdown: whatever is on
         # disk when the node dies is valid data. Render it afterwards with
-        #     ros2 run quad_nmpc_ros plot_log
+        #     ros2 run quad_nmpc_ros_cpp plot_log
         self.declare_parameter('log_file', '')
         self.log_path = (self.get_parameter('log_file').value
                          or default_log_path())
@@ -176,7 +176,7 @@ class NmpcNode(Node):
         except Exception:
             pass
         print(f'[nmpc_node] flight log: {self.log_path}', flush=True)
-        print('[nmpc_node] plot it with:  ros2 run quad_nmpc_ros plot_log',
+        print('[nmpc_node] plot it with:  ros2 run quad_nmpc_ros_cpp plot_log',
               flush=True)
 
 

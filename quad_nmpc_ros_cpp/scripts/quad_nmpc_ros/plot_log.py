@@ -5,8 +5,8 @@ record what happened; turning that record into a picture is a separate job
 that must not be able to disturb the control loop, and must still work if the
 node was killed rather than shut down cleanly.
 
-    ros2 run quad_nmpc_ros plot_log                  # tracking_log.csv -> .png
-    ros2 run quad_nmpc_ros plot_log some_other.csv
+    ros2 run quad_nmpc_ros_cpp plot_log                  # tracking_log.csv -> .png
+    ros2 run quad_nmpc_ros_cpp plot_log some_other.csv
 """
 
 import os

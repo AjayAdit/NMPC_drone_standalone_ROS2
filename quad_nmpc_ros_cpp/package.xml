@@ -8,13 +8,15 @@
     wrapper -- everything that would run on the aircraft. The simulator stays in
     Python; it is a test fixture, not flight software.
 
-    Speaks the same two topics as quad_nmpc_ros, so either controller drives
-    either simulator.
+    Also holds the Python NMPC (scripts/quad_nmpc_ros), which generates the
+    acados solver and speaks the same two topics, so either controller drives
+    the simulator.
   </description>
   <maintainer email="j.ajayadit@gmail.com">AjayAdit</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>nav_msgs</depend>
@@ -23,8 +25,9 @@
   <depend>quadrotor_msgs</depend>
   <depend>std_srvs</depend>
 
-  <!-- only for the bundled Python simulator, scripts/sim_node.py -->
+  <!-- the Python simulator and the Python NMPC, under scripts/ -->
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
   <!-- sim_node loads libMujocoRosUtilsPlugin.so (AcroMode) from it -->
   <exec_depend>mujoco_ros_utils</exec_depend>
   <exec_depend>launch_ros</exec_depend>

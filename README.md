@@ -4,12 +4,33 @@ Trajectory-tracking NMPC for a quadrotor, as ROS 2 packages.
 
 | package | language | what it is |
 |---|---|---|
-| `quad_nmpc_ros` | Python | simulator + controller. The reference implementation. |
-| `quad_nmpc_ros_cpp` | C++ | the controller and its ROS wrapper -- everything that would run on the aircraft. Ships a copy of the Python simulator as a test fixture. |
+| `quad_nmpc_ros_cpp` | C++ + Python | **The one NMPC package.** The C++ controller and its ROS wrapper (everything that would run on the aircraft), plus, under `scripts/`, the Python simulator and the Python NMPC (which also generates the acados solver). |
 | `quadrotor_msgs` | msgs | `TRPYCommand` (thrust + body rates) and `PositionCommand`. |
 | `mujoco_ros_utils` | C++ | MuJoCo plugins, vendored from [MujocoRosUtils](https://github.com/isri-aist/MujocoRosUtils). Provides **AcroMode**, the body-rate loop the C++ pipeline flies through. |
 
-Both speak the same two topics, so either controller drives either simulator.
+```
+quad_nmpc_ros_cpp/
+├── src/, include/            C++: nmpc_node, trpy_converter_node
+├── scripts/
+│   ├── quad_nmpc_ros/        Python package: NMPC, Python nmpc_node, plot_log
+│   ├── sim_node.py           the one simulator (acro_mode true/false)
+│   ├── nmpc_node_py.py, plot_log.py    launchers for the Python package
+│   ├── plot_track.py         expected vs actual plot, plain Python
+│   └── regenerate.sh         Python NMPC -> acados_generated/
+├── worlds/                   quadrotor.xml (world + airframe, defined once),
+│                             bare_world.xml (+4 motors), bare_world_acro.xml (+AcroMode)
+├── launch/, config/, acados_generated/, post_analysis/
+```
+
+| executable (`ros2 run quad_nmpc_ros_cpp ...`) | what |
+|---|---|
+| `nmpc_node` | C++ NMPC |
+| `nmpc_node_py` | Python NMPC (motors only: fly it with `acro_mode:=false`) |
+| `trpy_converter_node` | `/motor_cmd` + body rates -> `TRPYCommand` for AcroMode |
+| `sim_node` | MuJoCo simulator |
+| `plot_log` | plots the Python NMPC's flight log |
+
+Both controllers speak the same two topics, so either one drives the simulator.
 Measured over 60 s against the same simulator, they agree to three decimals:
 **0.223 cm mean tracking error from both.**
 
@@ -119,12 +140,14 @@ source ~/drone_ws/install/setup.bash
 
 ### Python controller
 
+The Python NMPC sends motor commands only, so the simulator runs the motor world:
+
 ```bash
 # terminal 1 — wait for "NMPC ready" before starting the sim
-ros2 run quad_nmpc_ros nmpc_node
+ros2 run quad_nmpc_ros_cpp nmpc_node_py
 
 # terminal 2
-ros2 run quad_nmpc_ros sim_node
+ros2 run quad_nmpc_ros_cpp sim_node --ros-args -p acro_mode:=false
 ```
 
 ### C++ controller, through AcroMode (default)
@@ -167,20 +190,14 @@ ros2 run quad_nmpc_ros_cpp sim_node --ros-args -p acro_mode:=false    # terminal
 Both pipelines reach the same 1.4 mm steady error on the circle; see
 `quad_nmpc_ros_cpp/post_analysis/comparison.md`.
 
-### Mixed, which is the interesting one
+### Fixed duration
 
-Same topics, so the C++ controller flies the Python package's simulator:
-
-```bash
-ros2 run quad_nmpc_ros_cpp nmpc_node      # terminal 1
-ros2 run quad_nmpc_ros sim_node           # terminal 2
-```
-
-Stop after a fixed number of SIM seconds instead of Ctrl-C:
+Stop after a fixed number of SIM seconds instead of Ctrl-C (the value must be
+a double: `60.0`, not `60`):
 
 ```bash
 ros2 run quad_nmpc_ros_cpp nmpc_node --ros-args -p duration:=60.0
-ros2 run quad_nmpc_ros     sim_node  --ros-args -p duration:=64.0
+ros2 run quad_nmpc_ros_cpp sim_node  --ros-args -p duration:=64.0
 ```
 
 Before starting anything, check nothing is already publishing motor commands.
@@ -193,8 +210,8 @@ pgrep -af nmpc_node        # must print nothing
 
 A MuJoCo window opens and the drone traces a circle, leaving a green trail, with
 its nose pointing along the direction of travel. Terminal 1 prints the tracking
-error once a second. The flight is logged to `~/.quad_nmpc_ros/tracking_log.csv`
-as it flies; render it any time with `ros2 run quad_nmpc_ros plot_log`.
+error once a second. The Python NMPC logs to `~/.quad_nmpc_ros/tracking_log.csv`
+as it flies; render it any time with `ros2 run quad_nmpc_ros_cpp plot_log`.
 
 > The Python `nmpc_node` spends ~30 s on its first run compiling the acados
 > solver to C, cached in `~/.cache/quad_nmpc`. The C++ one never does: its

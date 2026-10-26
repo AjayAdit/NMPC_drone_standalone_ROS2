@@ -17,7 +17,7 @@
 set -euo pipefail
 
 PKG="$(cd "$(dirname "$0")/.." && pwd)"
-PY_PKG="$(cd "$PKG/../quad_nmpc_ros" && pwd)"
+PY_PKG="$PKG/scripts"          # holds the quad_nmpc_ros Python package
 OUT="$PKG/acados_generated"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -31,7 +31,7 @@ import mujoco
 from quad_nmpc_ros.nmpc_controller import NMPC
 
 export_dir, py_pkg = sys.argv[1], sys.argv[2]
-model = mujoco.MjModel.from_xml_path(f'{py_pkg}/worlds/bare_world.xml')
+model = mujoco.MjModel.from_xml_path(f'{py_pkg}/../worlds/bare_world.xml')
 NMPC.from_mujoco_model(model, export_dir=export_dir)
 print('generated')
 PY

@@ -214,7 +214,8 @@ class NMPC:
         self.x0 = x0
 
     @classmethod
-    def from_mujoco_model(cls,model):
+    def from_mujoco_model(cls, model, **kwargs):
+        # kwargs go to __init__ unchanged, e.g. export_dir= from scripts/regenerate.sh
         import mujoco
         bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "quadrotor")
         mass = model.body_mass[bid]
@@ -226,7 +227,7 @@ class NMPC:
             for i in range(4)])
         l = np.abs(sites[:, 1]).mean()
         return cls(mass=mass, Ixx=inertia[0], Iyy=inertia[1], Izz=inertia[2],
-                   l=l, k_tau=k_tau, k_mu=k_mu)
+                   l=l, k_tau=k_tau, k_mu=k_mu, **kwargs)
 
     def perception_output_map(self,p, v, q, omega):
         qw, qx, qy, qz = q[0], q[1], q[2], q[3]

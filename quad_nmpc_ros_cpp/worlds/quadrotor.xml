@@ -1,19 +1,21 @@
 <!--
-  bare_world.xml — minimal world for the standalone NMPC controller.
-  No car, no mocap target, no camera, no perception. Floor + one quadrotor.
+  quadrotor.xml - the ONE definition of the world and the airframe.
+  Not loaded on its own: the two top files include it and add the actuation.
+      bare_world.xml       + 4 motors m0..m3, set by sim_node (ctrl = k_tau*u^2)
+      bare_world_acro.xml  + 1 thrust + 3 torques, set by the AcroMode plugin
 
   The airframe is DELIBERATELY NOT NOVA'S:
       mass     0.80 kg            (NOVA: 1.25)
       inertia  0.006 0.006 0.011  (NOVA: 0.01 0.01 0.02)
       arm      0.18 m             (NOVA: 0.125)
-      k_tau    12.0               (NOVA: 20.0)
-      gear[5]  0.016              (NOVA: 0.022)
+      k_tau    12.0               (NOVA: 20.0)   <- in bare_world.xml's ctrlrange
+      gear[5]  0.016              (NOVA: 0.022)  <- in bare_world.xml's gear
 
   If from_mujoco_model() works, it reads these and the drone flies.
   If it were still using the hardcoded NOVA numbers, it would not.
+  Change the airframe HERE, then run scripts/regenerate.sh.
 -->
-
-<mujoco model="bare_world">
+<mujoco model="quadrotor">
     <option gravity="0 0 -9.81" timestep="0.002" />
     <compiler angle="radian" />
 
@@ -36,7 +38,8 @@
         <light pos="0 0 6" dir="0 0 -1" directional="true" />
         <geom name="floor" type="plane" size="20 20 0.05" material="grid" />
 
-        <!-- Name must match what from_mujoco_model() looks up. -->
+        <!-- from_mujoco_model() and AcroMode's body_name both look up this
+             name EXACTLY. -->
         <body name="quadrotor" pos="0 0 0.5">
             <freejoint name="drone_root" />
             <inertial pos="0 0 0" mass="0.8" diaginertia="0.006 0.006 0.011" />
@@ -58,31 +61,17 @@
             <geom name="prop3" type="cylinder" pos=" 0.18 -0.18 0.018"
                   size="0.07 0.002" material="prop" mass="0" />
 
-            <!-- Thrust sites: from_mujoco_model() reads l from their y-offset. Position and direction (up ) at the propeller, where the real push from the motor is applied.-->
+            <!-- Thrust sites, used by the 4 motors: from_mujoco_model() reads l
+                 from their y-offset. Position and direction (up) at the
+                 propeller, where the real push from the motor is applied. -->
             <site name="thrust0" pos=" 0.18  0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
             <site name="thrust1" pos="-0.18  0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
             <site name="thrust2" pos="-0.18 -0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
             <site name="thrust3" pos=" 0.18 -0.18 0.018" zaxis="0 0 1" size="0.01" rgba="1 0 0 0" />
+
+            <!-- Used by the acro actuators: at the centre of mass, axes = body
+                 axes, so thrust is along body z with no parasitic torque. -->
+            <site name="cog" pos="0 0 0" size="0.01" rgba="1 0 0 0" />
         </body>
     </worldbody>
-
-    <!--
-      The four motors. m0 pushes at site thrust0, and so on.
-      The sites above mark the spot and the up-direction. These lines apply the push.
-
-      ctrlrange="0 12.0" is that push in newtons: 0 is off, 12 is full thrust.
-      12 is k_tau. The controller sends u from 0 to 1, and sim_world converts it
-      with thrust = k_tau * u * u before it arrives here.
-
-      gear is 6 numbers in the site frame: force x y z, then twist x y z.
-      "0 0 1 0 0 0.016" means push straight up, plus a small yaw twist.
-      The twist sign flips (+ - + -) because neighboring props spin opposite ways.
-      from_mujoco_model() sets k_mu = 0.016 * k_tau from that last number.
-    -->
-    <actuator>
-        <general name="m0" site="thrust0" ctrllimited="true" ctrlrange="0 12.0" gear="0 0 1 0 0  0.016" />
-        <general name="m1" site="thrust1" ctrllimited="true" ctrlrange="0 12.0" gear="0 0 1 0 0 -0.016" />
-        <general name="m2" site="thrust2" ctrllimited="true" ctrlrange="0 12.0" gear="0 0 1 0 0  0.016" />
-        <general name="m3" site="thrust3" ctrllimited="true" ctrlrange="0 12.0" gear="0 0 1 0 0 -0.016" />
-    </actuator>
 </mujoco>
