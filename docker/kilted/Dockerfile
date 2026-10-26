@@ -40,7 +40,11 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv --system-site-packages ${VIRTUAL_ENV} \
  && ${VIRTUAL_ENV}/bin/pip install --no-cache-dir "numpy<2" \
       "mujoco==3.6.0" "casadi==3.7.2" matplotlib pyyaml \
- && ${VIRTUAL_ENV}/bin/pip install --no-cache-dir -e ${ACADOS_SOURCE_DIR}/interfaces/acados_template
+ && ${VIRTUAL_ENV}/bin/pip install --no-cache-dir -e ${ACADOS_SOURCE_DIR}/interfaces/acados_template \
+ && echo y | ${VIRTUAL_ENV}/bin/python -c \
+      "from acados_template.utils import get_tera; print(get_tera())"
+# ^ t_renderer (acados's code-gen template tool) into $ACADOS_SOURCE_DIR/bin now: the
+#   Python NMPC needs it on first run, and acados would otherwise ask y/N on stdin.
 ENV PATH=${VIRTUAL_ENV}/bin:${PATH}
 
 # --- the repo, exactly as a stranger would get it
