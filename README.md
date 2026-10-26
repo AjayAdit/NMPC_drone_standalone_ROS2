@@ -147,6 +147,13 @@ ros2 run quad_nmpc_ros_cpp trpy_converter_node
 ros2 run quad_nmpc_ros_cpp sim_node
 ```
 
+Or all 3 in one terminal (sim starts 4 s later; `duration` > 0 ends the whole launch):
+
+```bash
+ros2 launch quad_nmpc_ros_cpp acro.launch.py
+ros2 launch quad_nmpc_ros_cpp acro.launch.py duration:=60.0 log_file:=/tmp/log.csv
+```
+
 Without the converter nothing reaches AcroMode: the drone holds m·g and level
 attitude, but drifts with no position control.
 

@@ -12,3 +12,6 @@ log/
 
 # post-analysis raw data (large)
 quad_nmpc_ros_cpp/post_analysis/runs/*/raw/
+
+# Kilted docker flight output (docker/kilted/run.sh)
+kilted_results/

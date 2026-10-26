@@ -88,6 +88,6 @@ install(TARGETS nmpc_node trpy_converter_node DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/sim_node.py
         DESTINATION lib/${PROJECT_NAME}
         RENAME sim_node)
-install(DIRECTORY worlds config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY worlds config launch DESTINATION share/${PROJECT_NAME})
 
 ament_package()
