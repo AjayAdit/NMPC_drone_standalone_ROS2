@@ -200,6 +200,43 @@ as it flies; render it any time with `ros2 run quad_nmpc_ros plot_log`.
 > solver to C, cached in `~/.cache/quad_nmpc`. The C++ one never does: its
 > solver is compiled into the executable at build time.
 
+## Run on ROS 2 Kilted (Docker)
+
+The same code, built from GitHub on ROS 2 Kilted / Ubuntu 24.04. Needs Docker
+and, for the viewer on an NVIDIA GPU, `nvidia-container-toolkit`.
+
+Build the image once (about 5 min), and again after every push you want to test:
+
+```bash
+cd ~/"ACP DR/drone_ws/src/quad_nmpc_ros"
+docker build -t nmpc-kilted --build-arg REPO_REF=$(git rev-parse --short HEAD) docker/kilted
+```
+
+1. Open the container, from the repo folder:
+   ```bash
+   cd ~/"ACP DR/drone_ws/src/quad_nmpc_ros"
+   docker/kilted/run.sh
+   ```
+2. Source the workspace (inside the container):
+   ```bash
+   source /opt/ros/kilted/setup.bash
+   source /ws/install/setup.bash
+   ```
+3. Fly the C++ NMPC through AcroMode for 60 s; the launch ends by itself:
+   ```bash
+   mkdir -p /results/acro
+   ros2 launch quad_nmpc_ros_cpp acro.launch.py duration:=60.0 log_file:=/results/acro/log.csv
+   ```
+4. Plot expected vs actual, with the max and mean error:
+   ```bash
+   python3 /ws/src/quad_nmpc_ros/quad_nmpc_ros_cpp/scripts/plot_track.py /results/acro/log.csv
+   ```
+
+`/results` in the container is `./kilted_results` on the host, so the log and
+`log_track.png` are in `kilted_results/acro/`. The container itself is deleted
+on `exit`. The files belong to root; `sudo chown -R $USER kilted_results` once
+to edit them on the host.
+
 ## Regenerating the C++ solver
 
 `quad_nmpc_ros_cpp/acados_generated/` holds 528 KB of C emitted by acados, and
