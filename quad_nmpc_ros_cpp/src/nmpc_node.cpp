@@ -38,6 +38,7 @@ public:
     radius_ = declare_parameter<double>("radius", 5.0);
     altitude_ = declare_parameter<double>("altitude", 1.5);
     omega_ = declare_parameter<double>("omega", 0.5);
+    t_ramp_ = declare_parameter<double>("t_ramp", 2.0);
     duration_ = declare_parameter<double>("duration", 0.0);
 
     const double mass = declare_parameter<double>("mass", 0.8);
@@ -77,10 +78,19 @@ private:
   // is omega*t + pi/2 -- and it climbs without bound on purpose. See onOdom().
   void reference(double t, NmpcController::Vec3 & pos, NmpcController::Vec3 & vel, double & yaw) const
   {
-    pos = {radius_ * std::cos(omega_ * t), radius_ * std::sin(omega_ * t), altitude_};
-    vel = {-radius_ * omega_ * std::sin(omega_ * t),
-      radius_ * omega_ * std::cos(omega_ * t), 0.0};
-    yaw = omega_ * t + kPi / 2.0;
+    double w = omega_;
+    double theta = omega_ * t;
+    if (t_ramp_ > 0.0) {
+      if (t < t_ramp_) {
+        w = omega_ * t / t_ramp_;
+        theta = 0.5 * omega_ * t * t / t_ramp_;
+      } else {
+        theta = omega_ * (t - 0.5 * t_ramp_);
+      }
+    }
+    pos = {radius_ * std::cos(theta), radius_ * std::sin(theta), altitude_};
+    vel = {-radius_ * w * std::sin(theta), radius_ * w * std::cos(theta), 0.0};
+    yaw = theta + kPi / 2.0;
   }
 
   void onOdom(const nav_msgs::msg::Odometry & msg)
@@ -238,7 +248,7 @@ private:
   std::vector<NmpcController::Vec3> positions_, velocities_;
   std::vector<double> yaws_;
 
-  double radius_ {}, altitude_ {}, omega_ {}, duration_ {};
+  double radius_ {}, altitude_ {}, omega_ {}, t_ramp_ {}, duration_ {};
   std::optional<double> t0_;
   std::optional<double> turns_;                       // double-cover offset
   std::optional<NmpcController::Input> last_good_u_;

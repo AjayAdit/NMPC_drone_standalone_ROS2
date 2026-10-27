@@ -11,6 +11,7 @@ nmpc_node:
     radius: 5.0        # m      circle radius
     altitude: 1.5      # m      flight height
     omega: 0.5         # rad/s  about 2.5 m/s along the circle
+    t_ramp: 2.0        # s      ramp omega from 0 up to full speed; 0 = no ramp
     duration: 0.0      # s      0 means run until Ctrl-C
 
     mass: 0.8          # kg     must match worlds/bare_world.xml
