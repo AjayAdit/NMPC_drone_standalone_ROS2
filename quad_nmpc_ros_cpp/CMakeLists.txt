@@ -15,6 +15,7 @@ find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(actuator_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(trajectory_msgs REQUIRED)
 find_package(quadrotor_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 
@@ -41,11 +42,17 @@ endif()
 # acados_generated/ is committed. It is emitted by acados_template, which is
 # Python-only, so this package cannot regenerate it -- it only consumes it.
 # Re-emit it with scripts/regenerate.sh after changing the model or the cost.
+#
+# QUAD_NMPC_SOLVER_DIR builds against a different solver, such as another
+# airframe or cost. Its model must also be named quad_13state_drone.
 # ---------------------------------------------------------------------------
-set(GEN ${CMAKE_CURRENT_SOURCE_DIR}/acados_generated)
+set(QUAD_NMPC_SOLVER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/acados_generated
+    CACHE PATH "Directory holding the generated acados solver")
+set(GEN ${QUAD_NMPC_SOLVER_DIR})
+message(STATUS "acados solver: ${GEN}")
 if(NOT EXISTS ${GEN}/acados_solver_quad_13state_drone.h)
   message(FATAL_ERROR
-    "acados_generated/ is empty. Regenerate it:\n"
+    "no generated solver in ${GEN}. Regenerate it:\n"
     "  ${CMAKE_CURRENT_SOURCE_DIR}/scripts/regenerate.sh")
 endif()
 file(GLOB_RECURSE ACADOS_GEN_SRC ${GEN}/*.c)
@@ -75,7 +82,7 @@ add_executable(nmpc_node
 target_include_directories(nmpc_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(nmpc_node acados_generated_solver)
-ament_target_dependencies(nmpc_node rclcpp nav_msgs actuator_msgs geometry_msgs)
+ament_target_dependencies(nmpc_node rclcpp nav_msgs actuator_msgs geometry_msgs trajectory_msgs)
 
 # ---------------------------------------------------------------------------
 # The converter: /motor_cmd + /nmpc/body_rate_ref -> TRPYCommand for AcroMode.

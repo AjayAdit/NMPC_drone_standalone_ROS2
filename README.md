@@ -254,6 +254,25 @@ docker build -t nmpc-kilted --build-arg REPO_REF=$(git rev-parse --short HEAD) d
 on `exit`. The files belong to root; `sudo chown -R $USER kilted_results` once
 to edit them on the host.
 
+## External reference and other solvers
+
+By default `nmpc_node` flies its own circle. Two parameters let another node drive it:
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `reference_topic` | empty | Take the reference from this `trajectory_msgs/MultiDOFJointTrajectory`, with exactly N+1 (21) points |
+| `target_accel_topic` | empty | Take the target acceleration from this `geometry_msgs/Vector3Stamped`; otherwise zero |
+
+With a reference topic set, a solve waits for the `/odom` and the reference carrying the
+same stamp, and for the acceleration (if set) to reach that stamp. No command is sent before then.
+
+To build against another generated solver, whose model must also be named `quad_13state_drone`:
+
+```bash
+python -m colcon build --packages-select quad_nmpc_ros_cpp \
+  --cmake-args -DQUAD_NMPC_SOLVER_DIR=/absolute/path/to/solver
+```
+
 ## Regenerating the C++ solver
 
 `quad_nmpc_ros_cpp/acados_generated/` holds 528 KB of C emitted by acados, and

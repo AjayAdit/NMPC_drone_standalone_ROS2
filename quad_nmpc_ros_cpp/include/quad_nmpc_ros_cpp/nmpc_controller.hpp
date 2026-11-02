@@ -23,8 +23,6 @@ public:
   // see scripts/regenerate.sh.
   static constexpr int kNx = 13;   // [pos(3), vel(3), quat(4), omega(3)]
   static constexpr int kNu = 4;    // normalised motor commands, [0, 1]
-  static constexpr int kNy = 18;   // nx + nu + 1, the trailing slot is v_y_body
-  static constexpr int kNyN = 13;  // terminal cost has no input slot
   static constexpr int kN = 20;    // horizon nodes
 
   using State = std::array<double, kNx>;
@@ -47,6 +45,10 @@ public:
     const std::vector<Vec3> & positions,
     const std::vector<Vec3> & velocities,
     const std::vector<double> & yaws);
+
+  // Target acceleration feedforward, held across the whole horizon, used by
+  // every later solve. Starts at zero.
+  void setTargetAcceleration(const Vec3 & accel);
 
   // Pins the initial state, solves, returns node 0's input clipped to [0, 1].
   // On a failed solve the return value is whatever the solver left behind --

@@ -20,3 +20,6 @@ nmpc_node:
     dt: 0.05           # s      horizon step; must match the generated solver
 
     log_file: ""       # empty means ~/.quad_nmpc_ros/tracking_log.csv
+
+    reference_topic: ""     # empty flies the circle above
+    target_accel_topic: ""  # empty keeps the target acceleration at zero

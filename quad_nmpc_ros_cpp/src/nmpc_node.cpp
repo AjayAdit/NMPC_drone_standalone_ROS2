@@ -4,10 +4,16 @@
 // same double-cover handling, same solver guard -- so either controller can
 // drive either simulator, and a behaviour difference between them is a bug in
 // one of the two rather than a difference in what they were asked to do.
+//
+// By default the node flies its own circle and solves on every /odom. If
+// reference_topic is set, the reference comes from that topic instead. A solve
+// then waits for the odometry and the reference carrying the same stamp, and
+// for target_accel_topic (if set) to have reached that stamp.
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <optional>
@@ -18,6 +24,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "actuator_msgs/msg/actuators.hpp"
  #include "geometry_msgs/msg/vector3_stamped.hpp"
+#include "trajectory_msgs/msg/multi_dof_joint_trajectory.hpp"
 
 #include "quad_nmpc_ros_cpp/nmpc_controller.hpp"
 
@@ -47,6 +54,9 @@ public:
     const double dt = declare_parameter<double>("dt", 0.05);
 
     const std::string log_file = declare_parameter<std::string>("log_file", "");
+    const std::string reference_topic = declare_parameter<std::string>("reference_topic", "");
+    const std::string target_accel_topic =
+      declare_parameter<std::string>("target_accel_topic", "");
 
     RCLCPP_INFO(get_logger(), "creating the acados solver...");
     ctrl_ = std::make_unique<NmpcController>(mass, gravity, k_tau, dt);
@@ -65,6 +75,23 @@ public:
     rate_pub_ = create_publisher<geometry_msgs::msg::Vector3Stamped>("/nmpc/body_rate_ref", 10);
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       "/odom", 10, [this](nav_msgs::msg::Odometry::ConstSharedPtr msg) {onOdom(*msg);});
+
+    external_reference_ = !reference_topic.empty();
+    if (external_reference_) {
+      reference_sub_ = create_subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>(
+        reference_topic, 10,
+        [this](trajectory_msgs::msg::MultiDOFJointTrajectory::ConstSharedPtr msg) {
+          onReference(*msg);
+        });
+      RCLCPP_INFO(get_logger(), "reference from %s", reference_topic.c_str());
+    }
+    if (!target_accel_topic.empty()) {
+      accel_sub_ = create_subscription<geometry_msgs::msg::Vector3Stamped>(
+        target_accel_topic, 10,
+        [this](geometry_msgs::msg::Vector3Stamped::ConstSharedPtr msg) {onTargetAccel(*msg);});
+      wait_for_accel_ = external_reference_;
+      RCLCPP_INFO(get_logger(), "target acceleration from %s", target_accel_topic.c_str());
+    }
   }
 
   ~NmpcNode() override
@@ -93,25 +120,82 @@ private:
     yaw = theta + kPi / 2.0;
   }
 
-  void onOdom(const nav_msgs::msg::Odometry & msg)
+  static std::int64_t stampNs(const builtin_interfaces::msg::Time & stamp)
   {
-    // Sim time, phase-zeroed on the first message we ever see.
+    return static_cast<std::int64_t>(stamp.sec) * 1000000000LL + stamp.nanosec;
+  }
+
+  void onReference(const trajectory_msgs::msg::MultiDOFJointTrajectory & msg)
+  {
+    const std::size_t want = static_cast<std::size_t>(ctrl_->horizon()) + 1;
+    if (msg.points.size() != want) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 1000,
+        "reference has %zu points, expected %zu; dropping it", msg.points.size(), want);
+      return;
+    }
+    for (std::size_t k = 0; k < want; ++k) {
+      const auto & point = msg.points[k];
+      if (point.transforms.empty() || point.velocities.empty()) {
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 1000, "reference point %zu is empty; dropping it", k);
+        return;
+      }
+    }
+    last_reference_ = msg;
+    tryExternalSolve();
+  }
+
+  void onTargetAccel(const geometry_msgs::msg::Vector3Stamped & msg)
+  {
+    ctrl_->setTargetAcceleration({msg.vector.x, msg.vector.y, msg.vector.z});
+    last_accel_ns_ = stampNs(msg.header.stamp);
+    tryExternalSolve();
+  }
+
+  // Runs one solve once the odometry, the reference and the acceleration for
+  // the same instant are all here. They arrive on separate topics, in any order.
+  void tryExternalSolve()
+  {
+    if (!last_odom_ || !last_reference_) {return;}
+    const std::int64_t t_ns = stampNs(last_odom_->header.stamp);
+    if (stampNs(last_reference_->header.stamp) != t_ns) {return;}
+    if (wait_for_accel_ && (!last_accel_ns_ || *last_accel_ns_ < t_ns)) {return;}
+
+    const std::size_t n = positions_.size();
+    for (std::size_t k = 0; k < n; ++k) {
+      const auto & tf = last_reference_->points[k].transforms[0];
+      const auto & vel = last_reference_->points[k].velocities[0].linear;
+      positions_[k] = {tf.translation.x, tf.translation.y, tf.translation.z};
+      velocities_[k] = {vel.x, vel.y, vel.z};
+      // Recovers the same qw, qz, sign included: see setTargetTrajectory().
+      yaws_[k] = 2.0 * std::atan2(tf.rotation.z, tf.rotation.w);
+    }
+    const nav_msgs::msg::Odometry odom = *last_odom_;
+    last_odom_.reset();
+    last_reference_.reset();
+    solveAndPublish(odom, secondsSinceStart(odom));
+  }
+
+  // Sim time, phase-zeroed on the first message we ever see.
+  double secondsSinceStart(const nav_msgs::msg::Odometry & msg)
+  {
     double t = static_cast<double>(msg.header.stamp.sec) +
       static_cast<double>(msg.header.stamp.nanosec) * 1e-9;
     if (!t0_) {t0_ = t;}
-    t -= *t0_;
+    return t - *t0_;
+  }
 
-    const auto & p = msg.pose.pose.position;
+  void onOdom(const nav_msgs::msg::Odometry & msg)
+  {
+    if (external_reference_) {
+      last_odom_ = msg;
+      tryExternalSolve();
+      return;
+    }
+
+    const double t = secondsSinceStart(msg);
     const auto & q = msg.pose.pose.orientation;
-    const auto & v = msg.twist.twist.linear;
-    const auto & w = msg.twist.twist.angular;
-
-    // ROS is scalar-last (x,y,z,w); the controller is scalar-first (w,x,y,z).
-    const NmpcController::State x_meas {
-      p.x, p.y, p.z,
-      v.x, v.y, v.z,
-      q.w, q.x, q.y, q.z,
-      w.x, w.y, w.z};
 
     // Lock the double-cover offset ONCE. reference()'s heading climbs forever
     // and so does MuJoCo's quaternion, so a constant offset keeps the two in
@@ -135,6 +219,23 @@ private:
       reference(t + k * dt, positions_[k], velocities_[k], psi);
       yaws_[k] = psi + *turns_;
     }
+
+    solveAndPublish(msg, t);
+  }
+
+  void solveAndPublish(const nav_msgs::msg::Odometry & msg, double t)
+  {
+    const auto & p = msg.pose.pose.position;
+    const auto & q = msg.pose.pose.orientation;
+    const auto & v = msg.twist.twist.linear;
+    const auto & w = msg.twist.twist.angular;
+
+    // ROS is scalar-last (x,y,z,w); the controller is scalar-first (w,x,y,z).
+    const NmpcController::State x_meas {
+      p.x, p.y, p.z,
+      v.x, v.y, v.z,
+      q.w, q.x, q.y, q.z,
+      w.x, w.y, w.z};
 
     ctrl_->setTargetTrajectory(positions_, velocities_, yaws_);
     auto u = ctrl_->computeAction(x_meas);
@@ -244,6 +345,14 @@ private:
   rclcpp::Publisher<actuator_msgs::msg::Actuators>::SharedPtr cmd_pub_;
   rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr rate_pub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+  rclcpp::Subscription<trajectory_msgs::msg::MultiDOFJointTrajectory>::SharedPtr reference_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::Vector3Stamped>::SharedPtr accel_sub_;
+
+  bool external_reference_ {false};
+  bool wait_for_accel_ {false};
+  std::optional<nav_msgs::msg::Odometry> last_odom_;
+  std::optional<trajectory_msgs::msg::MultiDOFJointTrajectory> last_reference_;
+  std::optional<std::int64_t> last_accel_ns_;
 
   std::vector<NmpcController::Vec3> positions_, velocities_;
   std::vector<double> yaws_;

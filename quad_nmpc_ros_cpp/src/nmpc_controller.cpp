@@ -25,9 +25,12 @@ struct NmpcController::Impl
   // slots hold the hover command so that simply hovering costs nothing; the
   // trailing slot is the orbiting term (body-frame lateral velocity), whose
   // reference is zero -- that is what asks the nose to follow the velocity.
-  std::array<double, kNy> yref {};
-  std::array<double, kNyN> yref_e {};
+  std::array<double, QUAD_13STATE_DRONE_NY> yref {};
+  std::array<double, QUAD_13STATE_DRONE_NYN> yref_e {};
 };
+
+static_assert(
+  NmpcController::kN == QUAD_13STATE_DRONE_N, "kN does not match the generated solver");
 
 NmpcController::NmpcController(double mass, double gravity, double k_tau, double dt)
 : impl_(std::make_unique<Impl>()), dt_(dt)
@@ -52,14 +55,10 @@ NmpcController::NmpcController(double mass, double gravity, double k_tau, double
   u_hover_ = std::sqrt(mass * gravity / (4.0 * k_tau));
 
   // The model carries 3 online parameters: the target's acceleration
-  // feedforward, which this trajectory-tracking build never uses. acados does
-  // NOT zero them, so leaving them unset feeds uninitialised memory straight
-  // into the dynamics and every solve returns ACADOS_MINSTEP. The Python sets
-  // them on every call; they never change, so once at construction is enough.
-  double p_zero[3] = {0.0, 0.0, 0.0};
-  for (int k = 0; k <= kN; ++k) {
-    quad_13state_drone_acados_update_params(impl_->capsule, k, p_zero, 3);
-  }
+  // feedforward. acados does NOT zero them, so leaving them unset feeds
+  // uninitialised memory straight into the dynamics and every solve returns
+  // ACADOS_MINSTEP. Start at zero; setTargetAcceleration() changes them.
+  setTargetAcceleration({0.0, 0.0, 0.0});
 
   // Seed the horizon with a valid pose before the first solve. acados leaves
   // nlp_out at zeros, and an all-zero quaternion is not a rotation -- every
@@ -135,6 +134,14 @@ void NmpcController::setTargetTrajectory(
       ref_e[9] = qz;
       ocp_nlp_cost_model_set(impl_->config, impl_->dims, impl_->in, kN, "yref", ref_e.data());
     }
+  }
+}
+
+void NmpcController::setTargetAcceleration(const Vec3 & accel)
+{
+  Vec3 p = accel;
+  for (int k = 0; k <= kN; ++k) {
+    quad_13state_drone_acados_update_params(impl_->capsule, k, p.data(), 3);
   }
 }
 
